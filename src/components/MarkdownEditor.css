@@ -1,0 +1,20 @@
+.ProseMirror.editor {
+  border-color: black;
+  border-style: solid;
+  border-width: 1px;
+  padding: 0px !important;
+  max-width:unset!important;
+}
+
+.ProseMirror.editor > * {
+  margin-top: 1rem!important;
+  margin-bottom: 0rem!important;
+}
+
+.ProseMirror.editor :first-child {
+  margin-top: 0px !important;
+}
+
+.milkdown {
+  box-shadow: none!important;
+}
