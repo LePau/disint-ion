@@ -18,3 +18,8 @@
 .milkdown {
   box-shadow: none!important;
 }
+
+
+.slash-dropdown {
+  z-index: 99;
+}

@@ -1,6 +1,5 @@
 import type { CeramicApi } from '@ceramicnetwork/common';
-//import type { CeramicApi } from '@ceramicnetwork/ceramic-common/lib/ceramic-api';
-import { Ceramic, CeramicConfig } from '@ceramicnetwork/core'
+//import { Ceramic, CeramicConfig } from '@ceramicnetwork/core'
 import { CeramicClient } from '@ceramicnetwork/http-client'
 import * as ThreeIdResolver from '@ceramicnetwork/3id-did-resolver';
 import { IDX } from '@ceramicstudio/idx'
@@ -39,8 +38,9 @@ export class CeramicPortal {
             ipld: { codecs: [dagJose] },
         })
 
-        const config: CeramicConfig = {}
-        this._ceramic = (await Ceramic.create(this._ipfs, config)) as CeramicApi;
+        throw new Error("Cannot create local ceramic instance - @ceramicnetwork/core is not supported in the browser");
+        //const config: CeramicConfig = {}
+        //this._ceramic = (await Ceramic.create(this._ipfs, config)) as CeramicApi;
     }
 
     async authenticate() {
