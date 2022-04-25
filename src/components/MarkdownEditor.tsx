@@ -6,27 +6,37 @@ import { commonmark } from '@milkdown/preset-commonmark';
 import { history } from '@milkdown/plugin-history';
 import { clipboard } from '@milkdown/plugin-clipboard';
 import { slash } from '@milkdown/plugin-slash';
+import { menu } from '@milkdown/plugin-menu';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { Slice } from "prosemirror-model";
 
 import './MarkdownEditor.css'
 
-export const MarkdownEditor: React.FC = () => {
+//  more at https://programming.vip/docs/milkdown-editor-integration-guide.html
+
+export const MarkdownEditor: React.FC<{onMarkdownChange: (markdown: string) => void, markdown: string}> = (props) => {
     let editor: Editor;
 
     const reactEditor = useEditor((root) => {
+        
         editor = Editor.make()
             .config((ctx) => {
                 ctx.set(rootCtx, root);
+                ctx.get<any>(listenerCtx).markdownUpdated((ctx: any, markdown : string, prevMarkdown : string) => {
+                    props.onMarkdownChange(markdown);
+                });                
             })
             .use(nord)
             .use(history)
             .use(clipboard)
             .use(listener)
             .use(slash)
+            //.use(menu())
             .use(commonmark);
 
+        setTimeout(() => setMarkdown(props.markdown), 0);
         return editor;
+
     });
 
 

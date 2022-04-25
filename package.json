@@ -13,6 +13,7 @@
     "@milkdown/plugin-clipboard": "^5.5.0",
     "@milkdown/plugin-history": "^5.5.0",
     "@milkdown/plugin-listener": "^5.5.0",
+    "@milkdown/plugin-menu": "^5.5.0",
     "@milkdown/plugin-slash": "^5.5.0",
     "@milkdown/preset-commonmark": "^5.5.0",
     "@milkdown/react": "^5.5.0",
