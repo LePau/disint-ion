@@ -13,7 +13,8 @@ import {
 import { useLocation } from 'react-router-dom';
 import { personOutline, archiveOutline, archiveSharp, bookmarkOutline, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import './Menu.css';
-import { CeramicPortal } from '../lib/ceramic/portal';
+import { CeramicPortal } from '../lib/ceramic/ceramic-portal';
+import config from '../config.json'
 import { useState } from 'react';
 
 
@@ -24,9 +25,8 @@ const Menu: React.FC = () => {
 
   let connectWallet = async () => {
 
-    const endpoint = "https://ceramic-clay.3boxlabs.com";
-    let portal = new CeramicPortal(endpoint);
-    await portal.create();
+    let portal = new CeramicPortal(config.ceramicEndpoints[0]);
+    await portal.init();
 
     await portal.updateProfile("test name", 'https://avatars.githubusercontent.com/u/1857282?s=64&v=4');
     let data = (await portal.readProfile()) as any;

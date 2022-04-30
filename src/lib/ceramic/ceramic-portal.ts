@@ -3,6 +3,7 @@ import type { CeramicApi } from '@ceramicnetwork/common';
 import { CeramicClient } from '@ceramicnetwork/http-client'
 import * as ThreeIdResolver from '@ceramicnetwork/3id-did-resolver';
 import { IDX } from '@ceramicstudio/idx'
+import { TileDocument, TileMetadataArgs } from '@ceramicnetwork/stream-tile'
 
 import { create as createIPFS, IPFS } from 'ipfs-core'
 import * as dagJose from 'dag-jose'
@@ -12,9 +13,12 @@ import KeyDidResolver from 'key-did-resolver';
 import { Resolver } from 'did-resolver';
 import { DID } from 'dids';
 
+export interface CeramicProfile {
+    name: string;
+    avatarUrl: string;
+}
 
 export class CeramicPortal {
-
     private _ceramic: CeramicApi;
     private _ipfs: IPFS;
     private _authenticated: boolean;
@@ -25,7 +29,7 @@ export class CeramicPortal {
 
     }
 
-    async create() {
+    async init() {
         if (this._endpoint) {
             this._ceramic = new CeramicClient(this._endpoint) as CeramicApi
         } else {
@@ -44,6 +48,8 @@ export class CeramicPortal {
     }
 
     async authenticate() {
+        if (this._authenticated) return;
+
         let windowAny = window as any;
         const [address] = await this.connect()
         const threeIdConnect = new ThreeIdConnect()
@@ -82,7 +88,7 @@ export class CeramicPortal {
         return addresses
     }
 
-    async readProfile() {
+    async readProfile(): Promise<CeramicProfile> {
         const [address] = await this.connect()
         const idx = new IDX({ ceramic: this._ceramic as any })
 
@@ -91,11 +97,11 @@ export class CeramicPortal {
             `${address}@eip155:1`
         )
         this._profile = data;
-        return data
+        return data as CeramicProfile
     }
 
     async updateProfile(name: string, avatarUrl: string) {
-        this.authenticate();
+        await this.authenticate();
         const idx = new IDX({ ceramic: this._ceramic as any })
 
         await idx.set('basicProfile', {
@@ -104,4 +110,53 @@ export class CeramicPortal {
         })
 
     }
+
+    async create(data: any, mimetype: string, parent: string = '', tags: string[] = []): Promise<string> {
+        await this.authenticate();
+        const metadata = {} as TileMetadataArgs;
+        let controllerId = this._ceramic?.did?.id;
+        if (controllerId) {
+            metadata.controllers = [controllerId];
+        }
+
+        metadata.tags = [mimetype];
+
+        if (parent) {
+            metadata.family = parent;
+        }
+
+        if (tags?.length) {
+            metadata.tags = metadata.tags.concat(tags);
+        }
+
+        const doc = await TileDocument.create(this._ceramic, { data }, metadata);
+
+        console.log(doc.content)
+
+        const streamId = doc.id.toString()
+
+        console.log(streamId);
+
+        return streamId;
+
+    }
+
+    async addDocumentToUserCollection(hash: string) {
+        await this.authenticate();
+        let profile = this._profile || await this.readProfile();
+        const idx = new IDX({ ceramic: this._ceramic as any })
+
+        profile.posts = profile.posts || [];
+        profile.posts.push(hash);
+
+        if (!profile?.disint) {
+            await idx.merge('basicProfile', {disint: { created: new Date().toISOString } });
+            
+        }
+
+        await idx.merge('basicProfile', {disint: { posts: profile.posts } });
+
+
+    }
+
 }
