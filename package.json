@@ -19,6 +19,7 @@
     "@milkdown/preset-commonmark": "^5.5.0",
     "@milkdown/react": "^5.5.0",
     "@milkdown/theme-nord": "^5.5.0",
+    "@self.id/web": "^0.4.0",
     "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^11.2.5",
     "@testing-library/user-event": "^12.6.3",

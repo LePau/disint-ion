@@ -1,5 +1,5 @@
 import { IonButton, IonButtons, IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar } from '@ionic/react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createRef } from 'react';
 import { useParams } from 'react-router';
 import ExploreContainer from '../components/ExploreContainer';
@@ -12,6 +12,9 @@ const Page: React.FC = () => {
 
   const { name } = useParams<{ name: string; }>();
   const portal = new CeramicPortal(config.ceramicEndpoints[0]);
+  const [comments, setComments] = useState([] as any[]);
+  let _loading = false;
+
   portal.init();
 
   let [markdown, setMarkdown] = useState("");
@@ -20,13 +23,28 @@ const Page: React.FC = () => {
   }
 
   let create = async () => {
-    let profile = await portal.readProfile('posts');
-    console.log(profile)
-    let hash = await portal.create(markdown, 'text/markdown');
-    await portal.addDocumentToUserCollection(hash);
-    alert(hash);
-    //alert(markdown)
+    //let hash = await portal.create(markdown, 'text/markdown');
+    //await portal.addCommentToUserProfile(hash);
+    setMarkdown('');
+    //await loadComments();
   }
+
+  let loadComments = async () => {
+    if (_loading) return
+    _loading = true;
+    const profile = (await portal.readProfile()) as any;
+    const commentIds = profile?.disint?.comments || [];
+    const queries = commentIds.map((id: any) => { return { streamId: id } });
+    const comments = await portal.lookup(queries);
+
+    setComments(comments);
+
+    _loading = false;
+  }
+
+  useEffect(() => {
+    loadComments();
+  }, []);
 
   return (
     <IonPage>
@@ -48,6 +66,11 @@ const Page: React.FC = () => {
         <ExploreContainer name={name} />
         <MarkdownEditor onMarkdownChange={onMarkdownChange} markdown={markdown} />
         <IonButton onClick={create}>Save</IonButton>
+        {comments.map(c => {
+          return <div>{c.content}</div>
+        })
+
+        }
       </IonContent>
     </IonPage>
   );

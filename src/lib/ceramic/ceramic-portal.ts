@@ -2,13 +2,12 @@ import type { CeramicApi } from '@ceramicnetwork/common';
 //import { Ceramic, CeramicConfig } from '@ceramicnetwork/core'
 import { CeramicClient } from '@ceramicnetwork/http-client'
 import * as ThreeIdResolver from '@ceramicnetwork/3id-did-resolver';
-import { IDX } from '@ceramicstudio/idx'
 import { TileDocument, TileMetadataArgs } from '@ceramicnetwork/stream-tile'
 
 import { create as createIPFS, IPFS } from 'ipfs-core'
 import * as dagJose from 'dag-jose'
+import { EthereumAuthProvider, SelfID, WebClient } from '@self.id/web'
 
-import { ThreeIdConnect, EthereumAuthProvider } from '@3id/connect'
 import KeyDidResolver from 'key-did-resolver';
 import { Resolver } from 'did-resolver';
 import { DID } from 'dids';
@@ -20,6 +19,7 @@ export interface CeramicProfile {
 
 export class CeramicPortal {
     private _ceramic: CeramicApi;
+    private _selfId: SelfID;
     private _ipfs: IPFS;
     private _authenticated: boolean;
     private _profile: any;
@@ -52,20 +52,22 @@ export class CeramicPortal {
 
         let windowAny = window as any;
         const [address] = await this.connect()
-        const threeIdConnect = new ThreeIdConnect()
-        const provider = new EthereumAuthProvider(windowAny.ethereum, address)
+        const authProvider = new EthereumAuthProvider(windowAny.ethereum, address)
 
-        await threeIdConnect.connect(provider)
 
-        const did = new DID({
-            provider: threeIdConnect.getDidProvider(),
-            resolver: {
-                ...ThreeIdResolver.getResolver(this._ceramic)
-            }
+        // The following configuration assumes your local node is connected to the Clay testnet
+        const client = new WebClient({
+            ceramic: 'local', // "https://ceramic-clay.3boxlabs.com"
+            connectNetwork: 'testnet-clay',
         })
 
-        this._ceramic.setDID(did)
-        await this._ceramic.did?.authenticate()
+        // If authentication is successful, a DID instance is attached to the Ceramic instance
+        await client.authenticate(authProvider)
+
+        // A SelfID instance can only be created with an authenticated Ceramic instance
+        this._selfId = new SelfID({ client })
+
+        this._ceramic = this._selfId.client.ceramic;
 
         this._authenticated = true
     }
@@ -89,22 +91,20 @@ export class CeramicPortal {
     }
 
     async readProfile(): Promise<CeramicProfile> {
-        const [address] = await this.connect()
-        const idx = new IDX({ ceramic: this._ceramic as any })
+        await this.authenticate();
 
-        const data = await idx.get(
-            'basicProfile',
-            `${address}@eip155:1`
+        const data = await this._selfId.get(
+            'basicProfile'
         )
+
         this._profile = data;
         return data as CeramicProfile
     }
 
     async updateProfile(name: string, avatarUrl: string) {
         await this.authenticate();
-        const idx = new IDX({ ceramic: this._ceramic as any })
 
-        await idx.set('basicProfile', {
+        await this._selfId.set('basicProfile', {
             name,
             avatar: avatarUrl
         })
@@ -119,7 +119,7 @@ export class CeramicPortal {
             metadata.controllers = [controllerId];
         }
 
-        metadata.tags = [mimetype];
+        metadata.tags = metadata.tags || [];
 
         if (parent) {
             metadata.family = parent;
@@ -129,7 +129,7 @@ export class CeramicPortal {
             metadata.tags = metadata.tags.concat(tags);
         }
 
-        const doc = await TileDocument.create(this._ceramic, { data }, metadata);
+        const doc = await TileDocument.create(this._ceramic, { content: data, mimetype }, metadata);
 
         console.log(doc.content)
 
@@ -141,22 +141,36 @@ export class CeramicPortal {
 
     }
 
-    async addDocumentToUserCollection(hash: string) {
+    async addCommentToUserProfile(hash: string) {
         await this.authenticate();
         let profile = this._profile || await this.readProfile();
-        const idx = new IDX({ ceramic: this._ceramic as any })
 
-        profile.posts = profile.posts || [];
-        profile.posts.push(hash);
+        let disint = profile?.disint || {};
+        disint.comments = disint.comments || [];
+        disint.comments.push(hash);
 
-        if (!profile?.disint) {
-            await idx.merge('basicProfile', {disint: { created: new Date().toISOString } });
-            
+        await this._selfId.merge('basicProfile', { disint });
+
+    }
+
+    async getUserComments(): Promise<any[]> {
+        let profile = (await this.readProfile()) as any;
+        return profile?.disint?.comments || [];
+    }
+
+    // tried to type queries as MultiQuery[] but could not find type definiton anywhere
+    async lookup(queries: any[]): Promise<any[]> {
+        // returns a plain old javascript object where each streamId maps to a tile document
+        let streamObject = await this._ceramic.multiQuery(queries);
+
+        let contents = []; // TileDocument[] (where is this type?)
+
+        for (const streamId in streamObject) {
+            contents.push(streamObject[streamId]);
         }
 
-        await idx.merge('basicProfile', {disint: { posts: profile.posts } });
-
-
+        // drop the tile document, and just return the comments
+        return contents.map(c => c.content);
     }
 
 }
