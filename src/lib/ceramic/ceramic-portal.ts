@@ -13,6 +13,8 @@ import KeyDidResolver from 'key-did-resolver';
 import { Resolver } from 'did-resolver';
 import { DID } from 'dids';
 import { CommitID, StreamID } from '@ceramicnetwork/streamid';
+import { DisintComment } from '../../models/DisintComment';
+import { DisintCommentMetadata } from '../../models/Metadata';
 
 export interface DisintProfile {
     comments: string[];
@@ -192,7 +194,7 @@ export class CeramicPortal {
     }
 
     // tried to type queries as MultiQuery[] but could not find type definiton anywhere
-    async lookup(queries: any[]): Promise<TileDocument[]> {
+    async lookup<T>(queries: any[]): Promise<DisintComment<T>[]> {
         await this.connectToCeramicNetwork();
         // returns a plain old javascript object where each streamId maps to a tile document
         let streamObject = (await this._ceramic.multiQuery(queries)) as Record<string, TileDocument>;
@@ -204,13 +206,29 @@ export class CeramicPortal {
         }
 
         // drop the tile document, and just return the comments
-        return tileDocuments; //contents.map(c => c.content);
+        return tileDocuments.map(td => this.tileDocumentToDisintComment(td));
     }
 
-    async lookupStream(streamId: string): Promise<TileDocument> {
+    async lookupStream<T>(streamId: string): Promise<DisintComment<T>> {
         await this.connectToCeramicNetwork();
+        //await this.authenticate();
         let document = await this._ceramic.loadStream(streamId);
-        return document as TileDocument;
+        return this.tileDocumentToDisintComment<T>(document as TileDocument);
+    }
+
+    tileDocumentToDisintComment<T>(document: TileDocument): DisintComment<T> {
+        const comment = new DisintComment<T>();
+        comment.id = document.id.toString();
+        comment.cid = document.id.cid.toString();
+        comment.content = document.content.content as T;
+        comment.allCommitIds = (document.allCommitIds || []).map(c => c.toString());
+        comment.commitId = document.commitId.toString();
+        comment.mimetype = document.content.mimetype;
+        comment.metadata = new DisintCommentMetadata();
+        comment.metadata.tags = document.metadata.tags || [];
+        comment.tipCid = document.tip.toString();
+
+        return comment;
     }
 
 }
