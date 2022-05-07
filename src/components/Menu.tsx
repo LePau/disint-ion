@@ -11,7 +11,7 @@ import {
 } from '@ionic/react';
 
 import { useLocation } from 'react-router-dom';
-import { personOutline, archiveOutline, archiveSharp, bookmarkOutline, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
+import { personOutline, archiveOutline, archiveSharp, homeOutline,  bookmarkOutline, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import './Menu.css';
 import { CeramicPortal } from '../lib/ceramic/ceramic-portal';
 import config from '../config.json'
@@ -22,18 +22,15 @@ const Menu: React.FC = () => {
   const location = useLocation();
   const [loginName, setLoginName] = useState("");
   const [loginAddress, setLoginAddress] = useState("");
+  let portal = new CeramicPortal(config.ceramicEndpoints);
 
   let connectWallet = async () => {
-
-    let portal = new CeramicPortal(config.ceramicEndpoints[0]);
-    await portal.init();
-
+    await portal.authenticate();
     await portal.updateProfile("test name", 'https://avatars.githubusercontent.com/u/1857282?s=64&v=4');
     let data = (await portal.readProfile()) as any;
 
     setLoginName(data.name);
     setLoginAddress(portal.firstLoginAddress());
-
 
   }
 
@@ -45,8 +42,8 @@ const Menu: React.FC = () => {
           <IonNote>hi@ionicframework.com</IonNote>
           <IonMenuToggle autoHide={false}>
             <IonItem className={location.pathname === "/page/Inbox" ? 'selected' : ''} routerLink="/page/Inbox" routerDirection="none" lines="none" detail={false}>
-              <IonIcon slot="start" icon={bookmarkOutline} />
-              <IonLabel>Compose</IonLabel>
+              <IonIcon slot="start" icon={homeOutline} />
+              <IonLabel>Home</IonLabel>
             </IonItem>
           </IonMenuToggle>
           <IonItem lines="none" detail={false} onClick={connectWallet} button text-wrap>

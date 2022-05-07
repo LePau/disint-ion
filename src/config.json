@@ -1,5 +1,8 @@
 {
   "ceramicEndpoints": [
+    "local",
     "https://ceramic-clay.3boxlabs.com"
-  ]
+  ],
+  "rootDocumentStreamId": "kjzl6cwe1jw149tqk6h2o0duqf0rou1bes4tnuzck24x9cmt72ssc1ggcbuz6pc"
+
 }

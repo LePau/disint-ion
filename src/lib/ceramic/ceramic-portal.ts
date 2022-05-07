@@ -1,4 +1,4 @@
-import type { CeramicApi } from '@ceramicnetwork/common';
+import type { CeramicApi, Stream } from '@ceramicnetwork/common';
 //import { Ceramic, CeramicConfig } from '@ceramicnetwork/core'
 import { CeramicClient } from '@ceramicnetwork/http-client'
 import * as ThreeIdResolver from '@ceramicnetwork/3id-did-resolver';
@@ -7,14 +7,21 @@ import { TileDocument, TileMetadataArgs } from '@ceramicnetwork/stream-tile'
 import { create as createIPFS, IPFS } from 'ipfs-core'
 import * as dagJose from 'dag-jose'
 import { EthereumAuthProvider, SelfID, WebClient } from '@self.id/web'
+import { Core } from '@self.id/core'
 
 import KeyDidResolver from 'key-did-resolver';
 import { Resolver } from 'did-resolver';
 import { DID } from 'dids';
+import { CommitID, StreamID } from '@ceramicnetwork/streamid';
+
+export interface DisintProfile {
+    comments: string[];
+}
 
 export interface CeramicProfile {
     name: string;
     avatarUrl: string;
+    disint: DisintProfile;
 }
 
 export class CeramicPortal {
@@ -25,41 +32,30 @@ export class CeramicPortal {
     private _profile: any;
     private _addresses: string[];
 
-    constructor(private _endpoint: string = "") {
+    constructor(private _endpoints: string[] = []) {
 
     }
 
-    async init() {
-        if (this._endpoint) {
-            this._ceramic = new CeramicClient(this._endpoint) as CeramicApi
-        } else {
-            return await this._createLocalCeramic();
-        }
-    }
+    async connectToCeramicNetwork() {
+        if (this._ceramic) return;
 
-    async _createLocalCeramic() {
-        this._ipfs = await createIPFS({
-            ipld: { codecs: [dagJose] },
-        })
-
-        throw new Error("Cannot create local ceramic instance - @ceramicnetwork/core is not supported in the browser");
-        //const config: CeramicConfig = {}
-        //this._ceramic = (await Ceramic.create(this._ipfs, config)) as CeramicApi;
+        const core = new Core({ ceramic: this._endpoints[0] });
+        this._ceramic = core.ceramic;
     }
 
     async authenticate() {
         if (this._authenticated) return;
 
         let windowAny = window as any;
-        const [address] = await this.connect()
+        const [address] = await this.connectWallet()
         const authProvider = new EthereumAuthProvider(windowAny.ethereum, address)
-
 
         // The following configuration assumes your local node is connected to the Clay testnet
         const client = new WebClient({
-            ceramic: 'local', // "https://ceramic-clay.3boxlabs.com"
+            ceramic: this._endpoints[0],
             connectNetwork: 'testnet-clay',
         })
+
 
         // If authentication is successful, a DID instance is attached to the Ceramic instance
         await client.authenticate(authProvider)
@@ -80,7 +76,7 @@ export class CeramicPortal {
         return this._addresses[0];
     }
 
-    async connect() {
+    async connectWallet() {
         // assumes ethereum is injected by metamask.  consider replacing with https://portal.thirdweb.com/guides/add-connectwallet-to-your-website
         let windowAny = window as any;
         const addresses = await windowAny.ethereum.request({
@@ -141,13 +137,13 @@ export class CeramicPortal {
 
     }
 
-    async addCommentToUserProfile(hash: string) {
+    async addCommentToUserProfile(streamId: string) {
         await this.authenticate();
         let profile = this._profile || await this.readProfile();
 
         let disint = profile?.disint || {};
         disint.comments = disint.comments || [];
-        disint.comments.push(hash);
+        disint.comments.push(streamId);
 
         await this._selfId.merge('basicProfile', { disint });
 
@@ -158,19 +154,63 @@ export class CeramicPortal {
         return profile?.disint?.comments || [];
     }
 
-    // tried to type queries as MultiQuery[] but could not find type definiton anywhere
-    async lookup(queries: any[]): Promise<any[]> {
-        // returns a plain old javascript object where each streamId maps to a tile document
-        let streamObject = await this._ceramic.multiQuery(queries);
+    async togglePinComment(streamId: StreamID) {
+        return;
+        await this.authenticate();
 
-        let contents = []; // TileDocument[] (where is this type?)
+        let streamIds = await this._ceramic.pin.ls();
+        let targetStreamIdString = streamId.toString();
+        for await (let streamIdString of streamIds) {
+            if (streamIdString == targetStreamIdString) {
+                alert("unpin!");
+                return await this.unpinComment(streamId);
+            }
+        }
+
+        alert("pin!");
+        return await this.pinComment(streamId);
+    }
+
+    async getCommit(commitId: CommitID, streamId: string) {
+
+        await this.connectToCeramicNetwork();
+
+        let commit = await this._ceramic.loadStream(commitId);
+        //let commits = await this._ceramic.loadStreamCommits(streamId);
+        //let anchor = await this._ceramic.requestAnchor(streamId);
+        return commit;
+    }
+
+    async pinComment(streamId: StreamID) {
+        await this.authenticate();
+        return await this._ceramic.pin.add(streamId);
+    }
+
+    async unpinComment(streamId: StreamID) {
+        await this.authenticate();
+        return await this._ceramic.pin.rm(streamId);
+    }
+
+    // tried to type queries as MultiQuery[] but could not find type definiton anywhere
+    async lookup(queries: any[]): Promise<TileDocument[]> {
+        await this.connectToCeramicNetwork();
+        // returns a plain old javascript object where each streamId maps to a tile document
+        let streamObject = (await this._ceramic.multiQuery(queries)) as Record<string, TileDocument>;
+
+        let tileDocuments = [] as TileDocument[];
 
         for (const streamId in streamObject) {
-            contents.push(streamObject[streamId]);
+            tileDocuments.push(streamObject[streamId]);
         }
 
         // drop the tile document, and just return the comments
-        return contents.map(c => c.content);
+        return tileDocuments; //contents.map(c => c.content);
+    }
+
+    async lookupStream(streamId: string): Promise<TileDocument> {
+        await this.connectToCeramicNetwork();
+        let document = await this._ceramic.loadStream(streamId);
+        return document as TileDocument;
     }
 
 }

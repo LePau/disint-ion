@@ -13,18 +13,28 @@ import { Slice } from "prosemirror-model";
 import './MarkdownEditor.css'
 
 //  more at https://programming.vip/docs/milkdown-editor-integration-guide.html
+// binary at /usr/local/lib/node_modules/@ceramicnetwork/cli/node_modules/go-ipfs/bin/ipfs
+export const MarkdownEditor: React.FC<{ onMarkdownChange: (markdown: string) => void, markdown: string }> = (props) => {
+    //let editor: Editor;
+    let [editor, setEditor] = React.useState(null as unknown as Editor);
+    let [changingInternally, setChangingInternally] = React.useState(false);
 
-export const MarkdownEditor: React.FC<{onMarkdownChange: (markdown: string) => void, markdown: string}> = (props) => {
-    let editor: Editor;
+    React.useEffect(() => {
+        if (!changingInternally) {
+            setTimeout(() => setMarkdown(''), 0);
+        }
+    }, [props.markdown]);
 
     const reactEditor = useEditor((root) => {
-        
-        editor = Editor.make()
+
+        let editor = Editor.make()
             .config((ctx) => {
                 ctx.set(rootCtx, root);
-                ctx.get<any>(listenerCtx).markdownUpdated((ctx: any, markdown : string, prevMarkdown : string) => {
+                ctx.get<any>(listenerCtx).markdownUpdated((ctx: any, markdown: string, prevMarkdown: string) => {
+                    setChangingInternally(previous => true);
                     props.onMarkdownChange(markdown);
-                });                
+                    setChangingInternally(previous => false);
+                });
             })
             .use(nord)
             .use(history)
@@ -34,6 +44,7 @@ export const MarkdownEditor: React.FC<{onMarkdownChange: (markdown: string) => v
             //.use(menu())
             .use(commonmark);
 
+        setEditor(editor);
         setTimeout(() => setMarkdown(props.markdown), 0);
         return editor;
 
