@@ -260,6 +260,7 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
         const comment = new DisintComment<T>();
         comment.id = document.id.toString();
         comment.cid = document.id.cid.toString();
+        comment.controllers = document.controllers;
         comment.content = document.content.content as T;
         comment.allCommitIds = (document.allCommitIds || []).map(c => c.toString());
         comment.commitId = document.commitId.toString();

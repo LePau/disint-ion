@@ -20,8 +20,13 @@ export class CommentStandard extends React.Component<{ comment: DisintComment<an
         content: {JSON.stringify(this.props.comment.content, null, 2)}
       </pre>
       {this.props.comment.allCommitIds.map((commitId: any, i: any) => {
-        <p key={commitId.toString()}>
+        return <p key={commitId.toString()}>
           commit {i}: {commitId.toString()}
+        </p>
+      })}
+      {this.props.comment.controllers.map((c: any, i: number) => {
+        return <p key={c}>
+          controller {i}: {c}
         </p>
       })}
       <p>
