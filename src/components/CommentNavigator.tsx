@@ -33,10 +33,8 @@ export class CommentNavigator extends React.Component<CommentNavigatorProps, Com
     async loadComments() {
         if (this._loading) return
         this._loading = true;
-        const profile = (await this.portal.readProfile()) as CeramicProfile;
-        const commentIds = profile?.disint?.comments || [];
-        const queries = commentIds.map((id: any) => { return { streamId: id } });
-        const comments = await this.portal.lookup(queries);
+
+        const comments = await this.portal.loadChildrenComments(this._parentComment.id)
 
         this.setState({ comments });
 
@@ -58,7 +56,7 @@ export class CommentNavigator extends React.Component<CommentNavigatorProps, Com
             </div>
 
 
-        let comments = this.state.comments.map((c: DisintComment<any>) => {
+        let comments = this.state.comments?.map((c: DisintComment<any>) => {
             return <Link to={"/comments/" + c.id}>
                 <CommentStandard comment={c} key={c.id}></CommentStandard>
             </Link>

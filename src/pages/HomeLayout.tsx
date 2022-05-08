@@ -25,8 +25,7 @@ const HomeLayout: React.FC = () => {
   }
 
   let create = async () => {
-    let streamId = await portal.create(markdown, 'text/markdown');
-    await portal.addCommentToUserProfile(streamId);
+    let streamId = await portal.create(markdown, 'text/markdown', _parentStreamId);
     setMarkdown('');
     await commentNavigator.current?.loadComments();
     //let comment = comments[0];

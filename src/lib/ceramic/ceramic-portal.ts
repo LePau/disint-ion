@@ -17,7 +17,7 @@ import { DisintComment } from '../../models/DisintComment';
 import { DisintCommentMetadata } from '../../models/Metadata';
 
 export interface DisintProfile {
-    comments: string[];
+    comments: { [key: string]: string[] };
 }
 
 export interface CeramicProfile {
@@ -36,13 +36,14 @@ export interface ICeramicPortal {
     connectWallet(): void;
     readProfile(): Promise<CeramicProfile>;
     updateProfile(name: string, avatarUrl: string): void;
-    create(data: any, mimetype: string, parent?: string, tags?: string[]): Promise<string>;
-    addCommentToUserProfile(streamId: string): void;
+    create(data: any, mimetype: string, parentId: string, tags?: string[]): Promise<string>;
+    addCommentToUserProfile(streamId: string, parentId: string): void;
     getUserComments(): Promise<any[]>;
     togglePinComment(streamId: StreamID): void;
     getCommit(commitId: CommitID, streamId: string): void;
     pinComment(streamId: StreamID): void;
     unpinComment(streamId: StreamID): void;
+    loadChildrenComments<T>(parentStreamId: string): Promise<DisintComment<T>[]>;
     lookup<T>(queries: any[]): Promise<DisintComment<T>[]>;
     lookupStream<T>(streamId: string): Promise<DisintComment<T>>;
     tileDocumentToDisintComment<T>(document: TileDocument): DisintComment<T>;
@@ -149,7 +150,7 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
 
     }
 
-    async create(data: any, mimetype: string, parent: string = '', tags: string[] = []): Promise<string> {
+    async create(data: any, mimetype: string, parentId: string, tags: string[] = []): Promise<string> {
         await this.authenticate();
         const metadata = {} as TileMetadataArgs;
         let controllerId = this._ceramic?.did?.id;
@@ -159,36 +160,38 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
 
         metadata.tags = metadata.tags || [];
 
-        if (parent) {
-            metadata.family = parent;
-        }
-
         if (tags?.length) {
             metadata.tags = metadata.tags.concat(tags);
         }
 
-        const doc = await TileDocument.create(this._ceramic, { content: data, mimetype }, metadata);
+        const doc = await TileDocument.create(this._ceramic, { content: data, mimetype, parentIds: [parentId], childrenIds: [] }, metadata);
 
-        console.log(doc.content)
+        //console.log(doc.content)
 
         const streamId = doc.id.toString()
 
-        console.log(streamId);
+        //console.log(streamId);
+
+        await this.addCommentToUserProfile(streamId, parentId);
 
         return streamId;
 
     }
 
-    async addCommentToUserProfile(streamId: string) {
+    async addCommentToUserProfile(streamId: string, parentId: string) {
         await this.authenticate();
         let profile = this._profile || await this.readProfile();
 
         let disint = profile?.disint || {};
-        disint.comments = disint.comments || [];
-        disint.comments.push(streamId);
-
-        await this._selfId.merge('basicProfile', { disint });
-
+        disint.comments = disint.comments || {};
+        if (Array.isArray(disint.comments)) {
+            disint.comments = {}
+        }
+        disint.comments[parentId] = disint.comments[parentId] || [];
+        if (!disint.comments[parentId].includes(streamId)) {
+            disint.comments[parentId].push(streamId);
+            await this._selfId.merge('basicProfile', { disint });
+        }
     }
 
     async getUserComments(): Promise<any[]> {
@@ -197,19 +200,16 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
     }
 
     async togglePinComment(streamId: StreamID) {
-        return;
         await this.authenticate();
 
         let streamIds = await this._ceramic.pin.ls();
         let targetStreamIdString = streamId.toString();
         for await (let streamIdString of streamIds) {
             if (streamIdString == targetStreamIdString) {
-                alert("unpin!");
                 return await this.unpinComment(streamId);
             }
         }
 
-        alert("pin!");
         return await this.pinComment(streamId);
     }
 
@@ -231,6 +231,26 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
     async unpinComment(streamId: StreamID) {
         await this.authenticate();
         return await this._ceramic.pin.rm(streamId);
+    }
+
+    //
+    // TODO: for now, this only knows how to load children comments from the current user's
+    // profile.  In the future, read the parent stream owner and also their public profile
+    // to get additional children comments.  Still need to figure out how to read children
+    // comments that aren't from the parent owner or the current user.
+    //
+    async loadChildrenComments<T>(parentStreamId: string): Promise<DisintComment<T>[]> {
+        const profile = (await this.readProfile()) as CeramicProfile;
+        const parentCommentMap = profile?.disint?.comments || {};
+        const commentIds = parentCommentMap[parentStreamId] || [];
+        if (commentIds.length) {
+            const queries = commentIds.map((id: any) => { return { streamId: id } });
+            const comments = await this.lookup<T>(queries);
+            return comments;
+        } else {
+            return [];
+        }
+
     }
 
     // tried to type queries as MultiQuery[] but could not find type definiton anywhere
@@ -268,6 +288,9 @@ export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
         comment.metadata = new DisintCommentMetadata();
         comment.metadata.tags = document.metadata.tags || [];
         comment.tipCid = document.tip.toString();
+
+        comment.parentIds = document.content.parentIds || [];
+        comment.childrenIds = document.content.childrenIds || [];
 
         return comment;
     }
