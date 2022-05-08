@@ -1,8 +1,9 @@
 import React from "react";
-import { CeramicPortal, CeramicProfile } from "../lib/ceramic/ceramic-portal";
+import { CeramicPortal, CeramicProfile, ICeramicPortal } from "../lib/ceramic/ceramic-portal";
 import config from '../config.json'
 import { DisintComment } from "../models/DisintComment";
 import { CommentStandard } from "./CommentStandard";
+import { Link } from "react-router-dom";
 
 class CommentNavigatorProps {
     parentStreamId: string;
@@ -14,21 +15,19 @@ class CommentNavigatorState {
 }
 
 export class CommentNavigator extends React.Component<CommentNavigatorProps, CommentNavigatorState> {
-    portal: CeramicPortal;
-    _parentDocument: DisintComment<any>;
+    portal: ICeramicPortal;
+    _parentComment: DisintComment<any>;
     _loading = false;
 
     public constructor(props: CommentNavigatorProps) {
         super(props);
         this.state = new CommentNavigatorState();
-        this.portal = new CeramicPortal(config.ceramicEndpoints);
-
-        this.init();
+        this.portal = CeramicPortal.getInstance(config.ceramicEndpoints);
     }
 
-    async init() {
-        this.loadParentDocument();
-        this.loadComments();
+    async componentDidMount() {
+        await this.loadParentDocument();
+        await this.loadComments();
     }
 
     async loadComments() {
@@ -45,15 +44,33 @@ export class CommentNavigator extends React.Component<CommentNavigatorProps, Com
     }
 
     async loadParentDocument() {
-        this._parentDocument = await this.portal.lookupStream(this.props.parentStreamId);
+        this._parentComment = await this.portal.lookupStream(this.props.parentStreamId);
     }
 
 
     render() {
 
-        return this.state.comments.map((c: DisintComment<any>) => {
-            return <CommentStandard comment={c}></CommentStandard>
+        let parentComment = this._parentComment &&
+            <div>
+                <h2>Parent</h2>
+                <CommentStandard comment={this._parentComment}></CommentStandard>
+
+            </div>
+
+
+        let comments = this.state.comments.map((c: DisintComment<any>) => {
+            return <Link to={"/comments/" + c.id}>
+                <CommentStandard comment={c} key={c.id}></CommentStandard>
+            </Link>
         })
+
+        return <div>
+            {parentComment}
+            <h2>
+                Children
+            </h2>
+            {comments}
+        </div>
 
     }
 }

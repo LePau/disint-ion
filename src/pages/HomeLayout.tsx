@@ -17,7 +17,7 @@ const HomeLayout: React.FC = () => {
 
   const { streamId } = useParams<{ streamId: string; }>();
   let _parentStreamId = streamId || config.rootDocumentStreamId;
-  let portal = new CeramicPortal(config.ceramicEndpoints);
+  let portal = CeramicPortal.getInstance(config.ceramicEndpoints);
 
   let [markdown, setMarkdown] = useState("");
   let onMarkdownChange = (markdown: string) => {

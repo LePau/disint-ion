@@ -1,0 +1,7 @@
+.comment-hover {
+    cursor: pointer;
+}
+
+.comment-hover:hover {
+    background-color: gainsboro;
+}

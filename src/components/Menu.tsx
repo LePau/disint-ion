@@ -22,7 +22,7 @@ const Menu: React.FC = () => {
   const location = useLocation();
   const [loginName, setLoginName] = useState("");
   const [loginAddress, setLoginAddress] = useState("");
-  let portal = new CeramicPortal(config.ceramicEndpoints);
+  let portal = CeramicPortal.getInstance(config.ceramicEndpoints);
 
   let connectWallet = async () => {
     await portal.authenticate();

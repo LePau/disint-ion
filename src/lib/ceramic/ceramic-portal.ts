@@ -26,16 +26,56 @@ export interface CeramicProfile {
     disint: DisintProfile;
 }
 
-export class CeramicPortal {
+
+
+export interface ICeramicPortal {
+    connectToCeramicNetwork(): void;
+    authenticate(): void;
+    isAuthenticated(): void;
+    firstLoginAddress(): string;
+    connectWallet(): void;
+    readProfile(): Promise<CeramicProfile>;
+    updateProfile(name: string, avatarUrl: string): void;
+    create(data: any, mimetype: string, parent?: string, tags?: string[]): Promise<string>;
+    addCommentToUserProfile(streamId: string): void;
+    getUserComments(): Promise<any[]>;
+    togglePinComment(streamId: StreamID): void;
+    getCommit(commitId: CommitID, streamId: string): void;
+    pinComment(streamId: StreamID): void;
+    unpinComment(streamId: StreamID): void;
+    lookup<T>(queries: any[]): Promise<DisintComment<T>[]>;
+    lookupStream<T>(streamId: string): Promise<DisintComment<T>>;
+    tileDocumentToDisintComment<T>(document: TileDocument): DisintComment<T>;
+}
+
+export class CeramicPortal implements ICeramicPortal, ICeramicPortal {
+
     private _ceramic: CeramicApi;
     private _selfId: SelfID;
     private _ipfs: IPFS;
     private _authenticated: boolean;
     private _profile: any;
     private _addresses: string[];
+    private static _instances = new Map<string, ICeramicPortal>();
 
     constructor(private _endpoints: string[] = []) {
 
+    }
+
+    // overwrite for testing
+    //CeramicPortal.getInstance = () => {throw new Error('oops')}
+    public static getInstance = (_endpoints: string[] = []): ICeramicPortal => {
+        let endpointsCopy = _endpoints.slice();
+        endpointsCopy.sort();
+        const key = endpointsCopy.reduce((i, key) => key + i, '');
+        const instance = this._instances.get(key);
+        if (instance) {
+            return instance;
+        }
+        else {
+            this._instances.set(key, new CeramicPortal(_endpoints));
+            return this._instances.get(key) as ICeramicPortal;
+        }
     }
 
     async connectToCeramicNetwork() {
